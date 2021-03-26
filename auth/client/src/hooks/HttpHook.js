@@ -4,15 +4,24 @@ export const useHttp = () =>{
 
     const [loading,setLoading] = useState(false);
     const [error,setError] = useState(null);
-    const request = useCallback( async (url,method='GET',body=null,header={}) => {
+    const request = useCallback( async (url,method='GET',body =null,headers={}) => {
+        
         setLoading(true);
-
         try{
+
+            if(body){
+                body = JSON.stringify(body)
+                headers['Content-Type'] = '/application/json'
+            }
+            console.log(typeof(body))
+            
+            console.log("HTTPHOOK - HEADER -", {method,body,headers});
+
             const response = await fetch(url,{method,body,headers})
             const data  = await response.json();
 
             if(response.ok != true){
-                throw new Error('ошибка');
+                throw new Error(data.message||'ошибка');
             }
             
             setLoading(false);

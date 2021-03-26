@@ -15,7 +15,8 @@ initializePassport(passport);
 const PORT = config.get('PORT') || 5000//default;
 
 app.set('view engine',"ejs");
-app.use(express.urlencoded({extended:false}));
+//app.use(express.urlencoded({extended:false}));
+
 app.use(session({
     secret: 'secret', //encryption key
     resave: false,
@@ -24,10 +25,12 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
-app.use(flash());
 
+//app.use(flash());
 
+app.use(express.json({extended: true}))
 
+app.use('/user/auth', require('./routes/LogRegRoutes'))
 
 app.get("/",(req,res)=>{
     res.render("../resources/front/Ovio/MainDownload-OvioAdmin-html5-template/html/index-dark.html");

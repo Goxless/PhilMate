@@ -1,23 +1,27 @@
-import React from 'react';
+import React,{useState} from 'react';
 import { useHttp } from '../hooks/HttpHook';
 import '../styles/Auth/style.css';
 import '../styles/Auth/style.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
+
 
 export const AuthPage =() =>{
 
 
     const {loading,error,request} = useHttp();
+    
     const [form,setForm] = useState({
       email:'',password:''
     })
 
     const changeHandler = event => {
-      setForm({...form,[event.taget.name]: event.target.value})
+      setForm({...form,[event.target.name]: event.target.value})
     }
 
     const registerHandler = async () =>{
         try{
-          const data = await request('/api/auth/reg')
+          const data = await request('/user/auth/register','POST',{...form})
+          console.log("data",data);
         }
         catch(e){
           
@@ -76,8 +80,11 @@ export const AuthPage =() =>{
                   </section>
                 </fieldset>
                 <footer className="text-right">
-                  <button type="button" className="btn btn-info pull-right">Login</button>
-                  <a href="register.html" className="button button-secondary">Register</a> </footer>
+                  <button type="button" className="btn btn-secondary" onClick={registerHandler} disabled = {loading}>Register</button>
+                  <button type="button" className="btn btn-info pull-right" disabled = {loading} >Login</button>
+            
+                  {/*<a href="register.html" className="button button-secondary">Register</a>*/}
+                </footer> 
               </form>
             </div>
           </div>
