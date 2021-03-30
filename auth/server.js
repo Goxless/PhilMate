@@ -14,21 +14,16 @@ initializePassport(passport);
 
 const PORT = config.get('PORT') || 5000//default;
 
-app.set('view engine',"ejs");
+//app.set('view engine',"ejs");
 //app.use(express.urlencoded({extended:false}));
-
-app.use(session({
-    secret: 'secret', //encryption key
-    resave: false,
-    saveUninitialized: false
-}));
+//app.use(flash());
+//app.use(session({ secret: 'secret', /*encryption key */ resave: false,    saveUninitialized: false}));
 
 app.use(passport.initialize());
 app.use(passport.session());
 
-//app.use(flash());
-
 app.use(express.json({extended: true}))
+app.use(express.urlencoded({ extended: true }))
 
 app.use('/user/auth', require('./routes/LogRegRoutes'))
 

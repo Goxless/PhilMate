@@ -3,6 +3,13 @@ import { useHttp } from '../hooks/HttpHook';
 import '../styles/Auth/style.css';
 import '../styles/Auth/style.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import {useMessage} from '../hooks/MessageHook'
+
+/**
+ * TODO: 
+ *  сделать вывод ошибок при авторизации - регистрации 
+ * 
+ */
 
 
 export const AuthPage =() =>{
@@ -14,26 +21,54 @@ export const AuthPage =() =>{
       email:'',password:''
     })
 
+    //useEffect(()=>{    },[error])
+
     const changeHandler = event => {
       setForm({...form,[event.target.name]: event.target.value})
     }
 
     const registerHandler = async () =>{
-        try{
+        try{   
           const data = await request('/user/auth/register','POST',{...form})
-          console.log("data",data);
         }
         catch(e){
           
         }
     } 
+
+    const loginHandler = async () =>{
+      try{   
+        const data = await request('/user/auth/login','POST',{...form})
+      }
+      catch(e){
+        
+      }
+  } 
+
+    const Errors = (params) =>{
+        return(
+        <div>
+          { params.length > 0 &&
+          <div class="alert alert-danger" role="alert">
+              {params.message}
+            </div>
+          }
+        </div>
+        )
+    
+    }
+
+    const err =[
+      {id:1,message:'suka ti eblan'}
+    ]
+    
     return( 
         <div>
           <meta charSet="utf-8" />
           <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
           {/* The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags */}
-          <title>Ovio -  Bootstrap Based Responsive Dashboard &amp; Admin Template</title>
+          <title>Admin Template</title>
           {/* Bootstrap */}
           <link rel="stylesheet" href="../bootstrap/css/bootstrap.min.css" />
           {/* Google Font */}
@@ -52,10 +87,13 @@ export const AuthPage =() =>{
       <![endif]*/}
           <div className="wrapper">
             <div className="form-body">
-              <form action className="col-form" noValidate>
+              <form className="col-form" noValidate>
                 <div className="col-logo"><a href="../index.html"> {/*<img alt="" src="../dist/img/logo-lg.png" />*/}</a></div>
                 <header>Login Form</header>
                 <fieldset>
+                  <section>
+                    <Errors params ={err}/>
+                  </section>
                   <section>
                     <div className="form-group has-feedback">
                       <label className="control-label">E-mail</label>
@@ -81,7 +119,7 @@ export const AuthPage =() =>{
                 </fieldset>
                 <footer className="text-right">
                   <button type="button" className="btn btn-secondary" onClick={registerHandler} disabled = {loading}>Register</button>
-                  <button type="button" className="btn btn-info pull-right" disabled = {loading} >Login</button>
+                  <button type="button" className="btn btn-info pull-right" disabled = {loading} onClick={loginHandler}>Login</button>
             
                   {/*<a href="register.html" className="button button-secondary">Register</a>*/}
                 </footer> 
