@@ -6,6 +6,7 @@ const session = require("express-session");
 const flash = require("express-flash");
 const passport = require("passport");
 const config = require("config")
+const authMid = require('./middleware/AuthMid')
 
 
 const initializePassport = require("./passportConfig");
@@ -25,26 +26,39 @@ app.use(passport.session());
 app.use(express.json({extended: true}))
 app.use(express.urlencoded({ extended: true }))
 
-app.use('/user/auth', require('./routes/LogRegRoutes'))
+app.use('/user',require('./routes/UserRoutes'))
 
-app.get("/",(req,res)=>{
-    res.render("../resources/front/Ovio/MainDownload-OvioAdmin-html5-template/html/index-dark.html");
+app.get("/",authMid,(req,res)=>{
+
+    console.log("Пользователь ",req.user.userID," вошел в систему")
+
+    res.status(200).send({status:"API фурычит и мурлычет",VisitDate:new Date().toISOString().slice(0, 19).replace('T', ' ')})
+
+    //res.render("../client/src/styles/index-dark.html");
 });
 
+
+
+
 app.get("/users/reg",(req,res)=>{
-    res.render("reg");
+    res.status(301).send({status:"deprecated"});
 });
 
 app.get("/users/log",(req,res)=>{
-    res.render("login");
+    res.status(301).send({status:"deprecated"});
 });
 
 app.get("/users/dash",(req,res)=>{
-    res.render("dshboard",{user:"Conor"});
+    res.status(301).send({status:"deprecated"});
+    //res.render("dshboard",{user:"Conor"});
 });
 
 
 app.post('/users/reg', async (req,res)=>{
+     
+    res.status(301).send({status:"deprecated"});
+
+    
     let {login,Pnumber,password,passwordConfirm} = req.body;
 
     console.log({ login,Pnumber,password,passwordConfirm});
@@ -104,7 +118,9 @@ app.post("users/login",passport.authenticate('local',{
     successRedirect: '/index', // if login successful
     failureRedirect: "/users/login",
     failureFlash: true
-}))
+}), async (req,res)=>{
+    res.status(301).send({status:"deprecated"});
+})
 
 app.listen(PORT,()=>{
     console.log(`server is runninng on port ${PORT}`);

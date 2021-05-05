@@ -1,9 +1,10 @@
-import React,{useState} from 'react';
+import React,{useState,useContext} from 'react';
 import { useHttp } from '../hooks/HttpHook';
 import '../styles/Auth/style.css';
 import '../styles/Auth/style.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import {useMessage} from '../hooks/MessageHook'
+import { AuthContext } from '../context/authContext';
 
 /**
  * TODO: 
@@ -15,12 +16,15 @@ import {useMessage} from '../hooks/MessageHook'
 export const AuthPage =() =>{
 
 
+    
+    const auth = useContext(AuthContext) 
     const {loading,error,request} = useHttp();
     
     const [form,setForm] = useState({
       email:'',password:''
     })
-
+    
+    
     //useEffect(()=>{    },[error])
 
     const changeHandler = event => {
@@ -29,7 +33,8 @@ export const AuthPage =() =>{
 
     const registerHandler = async () =>{
         try{   
-          const data = await request('/user/auth/register','POST',{...form})
+         const data = await request('/user/auth/register','POST',{...form})
+        // return <Redirect to='/register' />
         }
         catch(e){
           
@@ -39,6 +44,9 @@ export const AuthPage =() =>{
     const loginHandler = async () =>{
       try{   
         const data = await request('/user/auth/login','POST',{...form})
+        
+        auth.login(data.token,data.userId)
+
       }
       catch(e){
         
@@ -89,7 +97,7 @@ export const AuthPage =() =>{
             <div className="form-body">
               <form className="col-form" noValidate>
                 <div className="col-logo"><a href="../index.html"> {/*<img alt="" src="../dist/img/logo-lg.png" />*/}</a></div>
-                <header>Login Form</header>
+                <header>Login</header>
                 <fieldset>
                   <section>
                     <Errors params ={err}/>
@@ -117,11 +125,14 @@ export const AuthPage =() =>{
                     </div>
                   </section>
                 </fieldset>
-                <footer className="text-right">
-                  <button type="button" className="btn btn-secondary" onClick={registerHandler} disabled = {loading}>Register</button>
+                <footer className="text-left">
+                  {/*<button type="button" className="btn btn-secondary" onClick="location.href='http://www.example.com'" disabled = {loading}>Register</button>*/}
+                  <a href="/register" class="btn btn-secondary">Register</a>
                   <button type="button" className="btn btn-info pull-right" disabled = {loading} onClick={loginHandler}>Login</button>
+                  
             
                   {/*<a href="register.html" className="button button-secondary">Register</a>*/}
+
                 </footer> 
               </form>
             </div>
