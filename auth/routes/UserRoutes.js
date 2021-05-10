@@ -6,6 +6,9 @@ const config = require('config')
 const jwt = require('jsonwebtoken')
 const bcrypt = require("bcrypt");
 const authMid = require('../middleware/AuthMid')
+var fs = require('fs');
+
+//router.use('/prefs',require('./UserPrefsRoutes'))
 
 router.post('/auth/register', 
     [
@@ -71,7 +74,7 @@ router.post('/auth/register',
                                     
                                 //base profile configuration for new user 
                                 pool.query(
-                                    'INSERT INTO profile(name,surname,age,userid,imgpath) VALUES(\'sample name\',\'sample surname\',20,$1,\'/resources/baseimg.jpg\')',
+                                    'INSERT INTO profile(name,surname,age,userid,imgpath) VALUES(\'sample name\',\'sample surname\',20,$1,\'0.jpg\')',
                                     [result.rows[0].id],
                                     (err,result)=>{
                                         if(err)
@@ -170,7 +173,7 @@ router.post('/auth/login',
 router.get('/settings',authMid,(req,res)=>{
     try{
         pool.query(
-            'SELECT app_user.registrationdate,app_user.login,app_user.phonenumber,app_user.email,profile.name,profile.surname,profile.age,profile.imgpath \
+            'SELECT app_user.registrationdate,app_user.login,app_user.phonenumber,app_user.email,profile.name,profile.surname,profile.age,profile.imgpath as image \
             FROM app_user  \
             JOIN profile ON app_user.Id = profile.userid WHERE app_user.id = $1 ;',
             [req.user.userID],
@@ -181,25 +184,9 @@ router.get('/settings',authMid,(req,res)=>{
                     }            
                     else{
 
-                        console.log("ROWS = ",result1.rows[0])
+                        result1.rows[0].image = fs.readFileSync('./resources/profileImage/'+result1.rows[0].image, 'base64');
 
-                        var feedBackArray = result1.rows[0]
-                        const rows2Delete =  ['id', 'password']
-                        rows2Delete.forEach(d => delete feedBackArray[d]);
-
-                        pool.query(
-                            `SELECT * FROM profile WHERE userid = $1`,
-                            [req.user.userID],
-                            (err,result2)=>{
-                                if(err)
-                                    throw err;
-                                
-                                
-                            }
-                        )
-                        
-
-                        res.status(201).json({message:feedBackArray});
+                        res.status(201).json({message:result1.rows[0]});
                     }
                 }
                 catch(e){
@@ -214,7 +201,110 @@ router.get('/settings',authMid,(req,res)=>{
         res.status(500).json({message:'Something went Wrong'})
     }
 })
+                        /**
+                         * Valid telephone formats:
+                         * (123) 456-7890
+                         * (123)456-7890
+                         * 123-456-7890
+                         * 123.456.7890
+                         * 1234567890
+                         * +31636363634
+                         * 075-63546725
+                         *  */  
+router.post('/settings',authMid,
+            [
+                check('phonenumber','некорректный номер телефона').matches(/^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im).optional({nullable: true}),
+                check('name','некорректное имя').not().isNumeric().isLength({ min: 2,max:150}).optional({nullable: true}),
+                check('surname','некорректная фамилия ').not().isNumeric().isLength({ min: 2,max:150}).optional({nullable: true}),
+                check('age','некорректный возраст').isNumeric().isInt({gt:1,lt:122}).optional({nullable: true}),                            
+                check('image','размер файла превышает 10MB').custom((value) =>  10485760 > Buffer.byteLength(value,'base64')).optional({nullable: true}),
+                //check('image','файл не является изображением').custom((value) => {} )
+            ],
+            async (req,res)=>{
+    try{
+        
 
+        const errors = validationResult(req);
+
+        if(!errors.isEmpty()){
+            return res.status(400).json({errors: errors.array(), message:'Некорректные данные при вводе '});
+        }
+
+        fs.writeFile('./resources/profileImage/'+req.user.userID+".png", req.body.image.split(/,\s*/)[1], {encoding: 'base64'}, function(err) {
+            if(err)
+                throw err;
+        });
+        
+        // for (const [key, value] of Object.entries(req.body)) {
+        // }
+
+        if(req.body.phonenumber){
+            pool.query(
+                'UPDATE app_user SET phonenumber = $2 WHERE id = $1',
+                [req.user.userID,req.body.phonenumber],
+                (err)=>{
+                    if(err)
+                        throw err;   
+                }
+            )
+        }
+
+        var sqlString = 'UPDATE profile SET '
+        var sqlValue = []
+        
+        for ( value in req.body) {
+            //console.log(`${value}: ${req.body[value]}`);
+            switch (value) {
+                case 'name':
+                    sqlString += ' name = $' + (sqlValue.length + 1) + ', '
+                    sqlValue.push(req.body[value])
+                    break;
+                case 'surname':
+                    sqlString += ' surname = $' + (sqlValue.length + 1) + ', '
+                    sqlValue.push(req.body[value])
+                    break;    
+                case 'age':
+                    sqlString += ' age = $' + (sqlValue.length + 1) + ', '
+                    sqlValue.push(req.body[value])
+                    break;
+                case 'image':
+                    sqlString += ' imgpath = $' + (sqlValue.length + 1) + ', '
+                    sqlValue.push(req.user.userID+".png")
+                    break;
+
+            
+            }
+        }
+        sqlString = sqlString.substring(0, sqlString.length - 2)
+
+        sqlString += ' WHERE userid = $' + (sqlValue.length + 1)
+        sqlValue.push(req.user.userID)
+
+        pool.query(sqlString,sqlValue,
+            (err)=>{
+                if(err)
+                    throw err;
+                
+            }
+        ) 
+
+        return res.status(201).json({message:'Профиль обновлен'})
+
+        
+    }
+    catch(e){
+        console.log(e.message)
+        res.status(500).json({message:'Something went Wrong'})
+    }
+})
+
+
+
+
+
+/*
+    TODO: доделать (по хорошему) нормальное изменение пароля и почты 
+*/
 
 
 module.exports = router
