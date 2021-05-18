@@ -2,10 +2,12 @@ const {Router} = require('express')
 const {pool} = require('../dbConfig')
 const{check,validationResult, body,query} = require('express-validator')
 const router = Router()
+const teacherMid = require('../middleware/TeacherMid')
+const authMid = require('../middleware/AuthMid')
 const config = require('config')
 const jwt = require('jsonwebtoken')
 const bcrypt = require("bcrypt");
-const authMid = require('../middleware/AuthMid')
+const concurrently = require('concurrently')
 
 
 router.get("/",
@@ -50,7 +52,7 @@ router.get("/",
         if(pageNumber){
             const rowQuantity = 10
 
-            pool.query(`SELECT * FROM tags
+            pool.query(`SELECT * FROM tag
                         ORDER BY id
                         LIMIT $2 OFFSET $1`
         ,[rowQuantity * (pageNumber - 1), rowQuantity],(err,results)=>{
@@ -71,7 +73,7 @@ router.get("/",
             });
         }
         else if(startFrom && offset){
-            pool.query(`SELECT * FROM tags
+            pool.query(`SELECT * FROM tag
                         ORDER BY id
                         LIMIT $2 OFFSET $1`
                 ,[Number(startFrom) - 1, Number(offset - startFrom) + 1],(err,results)=>{
@@ -91,7 +93,7 @@ router.get("/",
                     });
         }
         else{
-            pool.query(`SELECT * FROM tags
+            pool.query(`SELECT * FROM tag
                         where name = $1`
                 ,[tagName],(err,results)=>{
 
@@ -121,137 +123,62 @@ router.get("/",
 });
 
 
-router.post('/', (req,res)=>{
+router.post('/',authMid,teacherMid,async (req,res)=>{
 
+    // TODO:добавить валидацию 
     //return res.status(500).json({message:'Something went Wrong'})
 
     const{name,authorsid,booksid,directionsid,complexity} = req.body
 
     try{  
-        pool.query(
-            `select id from tag where name = $1 `,
-            [name],
-            (err,result)=>{
-                try{
-                    if(err){
-                        throw err;
-                    }
-                    let currentID = Number()
+        let currentID = await pool.query(`SELECT id FROM tag WHERE name = $1 `,[name]);  
+        
+        
+        if( currentID.rows.length <= 0){
+            currentID = (await pool.query('INSERT INTO tag(name,complexity) VALUES($1,$2) returning id',[name,complexity])).rows[0].id
 
-                    if(result.rows.length > 0)
-                        currentID = result.rows[0].id
-                     
-                   
-                    if(result.rows.length <= 0){
-
-                        if(!req.body.complexity){
-                            
-                            return res.status(400).json({message:'Отсутствует уровень сложности в новом теге'});
-                        }
-                        
-                        
-                        pool.query('INSERT INTO tag(name,complexity) VALUES($1,$2) returning id',
-                        [name,complexity]
-                        ,(err,result1)=>{
-                            if(err)
-                                throw err;
-                            
-                            currentID =  result1.rows[0].id
-
-                            for ( value in req.body.authorsid) {
-                                pool.query('INSERT INTO author_tag(tag,author) VALUES($1,$2)',
-                                    [currentID,value],
-                                    (err)=>{
-                                        if(err)
-                                            throw err;
-                                    })
-                            }
-                        
-                            for ( value in req.body.booksid) {
-                                pool.query('INSERT INTO book_tag(tag,book) VALUES($1,$2) ',
-                                    [currentID,value],
-                                    (err)=>{
-                                        if(err)
-                                            throw err;
-                                    })
-                            }
-                        
-                            for ( value in req.body.directionsid) {
-                                pool.query('INSERT INTO direct_tag(tag,direction) VALUES($1,$2) returning id',
-                                    [currentID,value],
-                                    (err)=>{
-                                        if(err)
-                                            throw err;
-                                    })
-                            }
-                            return res.status(201).json({message:'Тэг обновлен '})
-                            })
-
-                    }
-                    
-                    for ( value in req.body.authorsid) {
-
-                          pool.query('INSERT INTO author_tag(tag,author) VALUES($1,$2)',
-                            [currentID,authorsid[value]],
-                            (err)=>{
-                                try{
-                                    if(err)
-                                        throw err
-                                }
-                                catch(error){
-                                    return res.status(400).json({message:error.message});   
-                                } 
-                            })
-                    }
-                
-                    for ( value in req.body.booksid) {
-                        pool.query('INSERT INTO book_tag(tag,book) VALUES($1,$2) ',
-                            [currentID,booksid[value]],
-                            (err)=>{
-                                try{
-                                    if(err)
-                                        throw err;
-                                }
-                                catch(error){
-                                    return res.status(400).json({message:error.message});   
-                                } 
-
-                            })
-                    }
-                
-                    for ( value in req.body.directionsid) {
-                        pool.query('INSERT INTO direct_tag(tag,direction) VALUES($1,$2) returning id',
-                            [currentID,directionsid[value]],
-                            (err)=>{
-                                try{
-                                    if(err)
-                                        throw err;
-                                }
-                                catch(error){
-                                    return res.status(400).json({message:error.message});   
-                                } 
-                            })
-                    }
-
-                    return res.status(201).json({message:'Тэг обновлен '}) 
-                }
-                catch(error){
-                    console.log("кэтч сработал")
-                    return res.status(400).json({message:error.message});
-                    
-                }   
+            if(!req.body.complexity){
+                    res.status(400).json({message:'Отсутствует уровень сложности в новом теге'});
             }
-        );       
+
+            for ( value in req.body.authorsid) {
+                await pool.query('INSERT INTO author_tag(tag,author) VALUES($1,$2)',[currentID,authorsid[value]])
+            }
+        
+            for ( value in req.body.booksid) {
+                await pool.query('INSERT INTO book_tag(tag,book) VALUES($1,$2) ',[currentID,booksid[value]])
+            }
+        
+            for ( value in req.body.directionsid) {
+                await pool.query('INSERT INTO direct_tag(tag,direction) VALUES($1,$2)',[currentID,directionsid[value]])
+            }
+
+            return res.status(201).json({message:'Тэг добавлен '})
+        
+        }
+
+        currentID = currentID.rows[0].id
+
+        for ( value in req.body.authorsid) {    
+            await pool.query('INSERT INTO author_tag(tag,author) VALUES($1,$2)',[currentID,authorsid[value]])
+        }
+        for ( value in req.body.booksid) {
+            await pool.query('INSERT INTO book_tag(tag,book) VALUES($1,$2)',[currentID,booksid[value]])
+        }
+   
+        for ( value in req.body.directionsid) {
+            await pool.query('INSERT INTO direct_tag(tag,direction) VALUES($1,$2)',[currentID,directionsid[value]])
+        }
+
+        res.status(201).json({message:'Тэг обновлен'}) 
     }
     catch(e){
-        res.status(500).json({message:'Something went Wrong', detail: e.detail})
-        return 
+        res.status(500).json({message:'Something went Wrong', detail: e.detail,message:e.message})
     }
-
 
 })
 
-//сделать валидацию нормальную
+//сделать валидацию нормальную и рефакторинга завезти 
 
 
 async function insertItems (currentID,value,tagName,column)  {
