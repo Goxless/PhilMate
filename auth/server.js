@@ -27,15 +27,30 @@ app.use(express.json({extended: true}))
 app.use(express.urlencoded({ extended: true }))
 
 app.use('/user',require('./routes/UserRoutes'))
+app.use('/tags',require('./routes/TagsRoutes'))
+app.use('/education',authMid,require('./routes/EducationRoutes'))
+
+
+
+//app.use('/user/prefs',require('./routes/UserPrefsRoutes'))
+
+
+//app.use('/tags' )
+//app.use('/prefs)
+//app.use('/')
+
+//TODO: get info request 
 
 app.get("/",authMid,(req,res)=>{
 
     console.log("Пользователь ",req.user.userID," вошел в систему")
 
-    res.status(200).send({status:"API фурычит и мурлычет",VisitDate:new Date().toISOString().slice(0, 19).replace('T', ' ')})
+    res.status(200).send({status:"API фурычит и мурлычет нраица ",VisitDate:new Date().toISOString().slice(0, 19).replace('T', ' ')})
 
     //res.render("../client/src/styles/index-dark.html");
 });
+
+
 
 
 

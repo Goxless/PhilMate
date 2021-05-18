@@ -8,7 +8,7 @@ const bcrypt = require("bcrypt");
 const authMid = require('../middleware/AuthMid')
 var fs = require('fs');
 
-//router.use('/prefs',require('./UserPrefsRoutes'))
+router.use('/prefs',authMid,require('./UserPrefsRoutes'))
 
 router.post('/auth/register', 
     [
