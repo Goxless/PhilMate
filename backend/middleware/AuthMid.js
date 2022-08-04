@@ -18,7 +18,7 @@ module.exports = (req,res,next) =>{
         next()
 
     }catch(e){
-        return res.status(401).json({message:"неправильный запрос",conrete:e.message})
+        return res.status(401).json({message:"Необходима авторизация",conrete:e.message})
     }   
 
 }

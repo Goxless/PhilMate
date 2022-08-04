@@ -22,7 +22,7 @@ router.get("/progress",(req,res)=>{
                     }
                     
                     if(results.rows.length <= 0 ){
-                        return res.status(400).json({message:'маршрут отутствует '});
+                        return res.status(400).json({message:'маршрут отcутствует '});
                     }
 
                     var i = 1
@@ -44,26 +44,12 @@ router.get("/progress",(req,res)=>{
         }
 });
 
-router.get("/route", (req,res)=>{
 
+router.get("/route",(req,res)=>{
     try{ 
-        
-
-            const sqlQuery=`SELECT    s.id, a.name,a.surname,a.age,a.borndate,a.dieddate,a.resting_place,
-                                        b.title,b.page_count,b.publication_date,d.main_conception,d.history,d.first_date
-                            FROM stages  as s
-                                LEFT JOIN stage_author AS sa ON s.id = sa.stageid 
-                                    LEFT JOIN author AS a ON sa.authorid = a.id
-                                LEFT JOIN stage_book AS sb ON s.id = sb.stageid 
-                                    LEFT JOIN book AS b ON sb.bookid = b.id
-                                LEFT JOIN stage_dir AS sd ON s.id = sd.stageid 
-                                    LEFT JOIN direction AS d ON sd.dirid = d.id	
-                                WHERE s.userid = $1
-                                order by s.id`
-
-            pool.query(sqlQuery
-                ,[req.user.userID],(err,results)=>{
-
+            pool.query(`SELECT id,completed from stages where userid = $1 order by id`,
+                [req.user.userID],async (err,results)=>{
+                try{
 
                     if(err){
                         throw err;
@@ -73,71 +59,34 @@ router.get("/route", (req,res)=>{
 
                     if(results.rows.length <= 0 ){
                         return res.status(400).json({message:'маршрут отутствует '});
-   
-
                     }
                     
-                    var author
-                    var book
-                    var dir
                     
                     for(value in results.rows){
-                        results.rows[value].id = i++ 
 
-                        if(results.rows[value].name){
-                            results.rows[value].author = {
-                                name:results.rows[value].name,
-                                surname:results.rows[value].surname,
-                                age:results.rows[value].age,
-                                borndate:results.rows[value].borndate,
-                                dieddate:results.rows[value].dieddate,
-                                resting_place:results.rows[value].resting_place
-                            }
-                            
-                            
-                        }  
-                        if(results.rows[value].title){
+                        results.rows[value].authors = (await pool.query(
+                        `SELECT name,surname,patronymic,age,borndate,dieddate,resting_place FROM author WHERE id = ANY(
+                        SELECT authorid FROM stage_author WHERE stageid = $1)`,[results.rows[value].id])).rows
 
-                            results.rows[value].book = {
-                                title:results.rows[value].title,
-                                page_count:results.rows[value].page_count,
-                                publication_date:results.rows[value].publication_date,
-                            }
-                            
-                            
-                        }  
-                        if(results.rows[value].history){
+                        results.rows[value].books = (await pool.query(
+                            `SELECT page_count,publication_date,title FROM book WHERE id = ANY(
+                            SELECT bookid FROM stage_book WHERE stageid = $1)`,[results.rows[value].id])).rows
 
-                            results.rows[value].direction = {
-                                main_conception:results.rows[value].main_conception,
-                                history:results.rows[value].history,
-                                first_date:results.rows[value].first_date,
-                            }
+                        results.rows[value].directions = (await pool.query(
+                            `SELECT main_conception,history,first_date FROM direction WHERE id = ANY(
+                            SELECT dirid FROM stage_dir WHERE stageid = $1)`,[results.rows[value].id])).rows  
                             
-                            
-                        }
-                           
-                        delete results.rows[value]['name'];
-                        delete results.rows[value]['surname'];
-                        delete results.rows[value]['borndate'];
-                        delete results.rows[value]['age'];
-                        delete results.rows[value]['dieddate'];
-                        delete results.rows[value]['resting_place'];
-                        delete results.rows[value]['main_conception'];
-                        delete results.rows[value]['history'];
-                        delete results.rows[value]['first_date'];
-                        delete results.rows[value]['title'];
-                        delete results.rows[value]['page_count'];
-                        delete results.rows[value]['publication_date'];
+                            results.rows[value].id = i++     
 
-                        
-                    }//тут также костылим для удобства интерпретации json'а 
-
+                    }
                     res.status(201).json({route:results.rows});
-
-                    });
+                }
+                catch(e){
+                    console.log(e.message)
+                    res.status(500).json({message:'Something went Wrong'})
+                }
+            }); 
         }
-        
         catch(e){
             console.log(e.message)
             res.status(500).json({message:'Something went Wrong'})
@@ -145,11 +94,71 @@ router.get("/route", (req,res)=>{
 });
 
 
-router.post('/', (req,res)=>{
+router.post('/complete',async (req,res)=>{
+    try{
 
-    //return res.status(500).json({message:'Something went Wrong'})
+        const{stage,parts} = req.body
 
-    const{name,authorsid,booksid,directionsid,complexity} = req.body
+        var stageID = (await pool.query(`SELECT id FROM stages
+                WHERE userid = $1
+                ORDER BY id
+                LIMIT 1 OFFSET $2
+                `,[req.user.userID,stage - 1])).rows[0]
+
+        if(!stageID){
+            return res.status(400).json({message:'Этап отсутствует'});
+        }
+        
+        stageID = stageID.id 
+
+        for ( value in parts) {
+
+            switch (parts[value]) {
+                case 'book':
+                await pool.query(`UPDATE stage_book SET completed = $1 WHERE stageid = $2`,[true,stageID])
+                    break;
+                case 'author':
+                    await pool.query(`UPDATE stage_author SET completed = $1 WHERE stageid = $2`,[true,stageID])
+                    break;    
+                case 'direction':
+                    await pool.query(`UPDATE stage_dir SET completed = $1 WHERE stageid = $2`,[true,stageID])
+                    break;
+                default:
+                    break;        
+            }
+        }
+
+        const bookReady = await pool.query(`select completed from stage_book where stageid = $1`,[stageID])
+        const authorReady = await pool.query(`select completed from stage_author where stageid = $1`,[stageID])
+        const dirReady = await pool.query(`select completed from stage_book where stageid = $1`,[stageID])
+
+
+        const completeCheck = (object) =>{
+            
+
+            if(object.rows[0] == undefined || object.rows[0] == null)
+                return true
+
+            else {
+                return object.rows[0].completed;
+            }
+        }
+
+        if(  completeCheck(bookReady) &&
+            completeCheck(authorReady) &&
+            completeCheck(dirReady)
+        ){
+            await pool.query(`UPDATE stages SET completed = $1 WHERE id = $2`,[true,stageID])
+        }
+
+        return res.status(400).json({message:'Этап обновлен'});
+    }
+    catch(e){
+        console.log(e)
+        return res.status(500).json({message:'Something went Wrong', detail: e.detail})
+    }   
+
+    //добавить проверку на выполненость всего 
 
     try{  
        pool.query(
@@ -160,6 +169,7 @@ router.post('/', (req,res)=>{
                     if(err){
                         throw err;
                     }
+
                     let currentID = Number()
 
                     if(result.rows.length > 0)
@@ -172,8 +182,7 @@ router.post('/', (req,res)=>{
                             
                             return res.status(400).json({message:'Отсутствует уровень сложности в новом теге'});
                         }
-                        
-                        
+                                                
                         pool.query('INSERT INTO tag(name,complexity) VALUES($1,$2) returning id',
                         [name,complexity]
                         ,(err,result1)=>{
@@ -272,11 +281,7 @@ router.post('/', (req,res)=>{
         return 
     }
 
-
 })
-
-//сделать валидацию нормальную и рефакторинга завезти 
-
 
 async function insertItems (currentID,value,tagName,column)  {
     return new Promise( (resolve) => {
@@ -286,7 +291,5 @@ async function insertItems (currentID,value,tagName,column)  {
             });
         }); 
 } 
-
-
 
 module.exports = router

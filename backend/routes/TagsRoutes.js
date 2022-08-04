@@ -17,19 +17,7 @@ router.get("/",
                 .not().exists().withMessage('присутствуют  дополнительные ключи ограничения ')
             .notEmpty().isNumeric().isInt({gt:0}).withMessage('Номер страницы обязан быть больше нуля').optional({nullable: true}),
 
-        // check.query('startFrom')
-        //     .if(body("pageNumber").exists())
-        //         .not().exists().withMessage('присутствуют дополнительные ключи ограничения ')
-        //     .if(body("offset").not().exists())
-        //         .exists().withMessage("Не указан номер конечного индекса ")
-        //     .notEmpty().isNumeric().isInt({gt:0}).withMessage('Номер начального индекса обязан быть числом больше нуля').optional({nullable: true}),
-
-        // check.query('offset')
-        //     .if(body("pageNumber").exists())
-        //         .not().exists().withMessage('присутствуют дополнительные ключи ограничения ')
-        //     .if(body("startFrom").not().exists())
-        //         .exists().withMessage("Не указан номер начального индекса ")
-        //     .notEmpty().isNumeric().isInt({min:1}).withMessage('Номер конечного индекса обязан быть числом больше нуля').optional({nullable: true}),
+       
     ]
     ,(req,res)=>{
     
@@ -39,13 +27,8 @@ router.get("/",
             return res.status(400).json({errors: errors.array(), message:'Некорректные данные при вводе '});
         }
 
-    //return res.status(200).send({status:"нрааааааица "+req.body.pageNumber,VisitDate:new Date().toISOString().slice(0, 19).replace('T', ' ')})
 
     try{
-
-        //return res.status(200).send({status:"нрааааааица "+req.body.pageNumber,VisitDate:new Date().toISOString().slice(0, 19).replace('T', ' ')})
-
-        //const {pageNumber,startFrom,offset} = req.body
 
         const {startPoint:startFrom,endPoint:offset,pageNumber,tagName} = req.query // дададада я просто лентяй, ацтань
         
@@ -95,14 +78,34 @@ router.get("/",
         else{
             pool.query(`SELECT * FROM tag
                         where name = $1`
-                ,[tagName],(err,results)=>{
+                ,[tagName],async (err,results)=>{
 
                     if(err){
                         throw err;
                     }
                     
                     if(results.rows.length > 0 ){
-                        res.status(201).json({result:results.rows});
+                        
+                        let tag = {
+                            complexity: results.rows[0].complexity,
+                            authors:[],
+                            books:[],
+                            directions:[]
+                          };
+
+                        tag.authors = (await pool.query(
+                            `SELECT name,surname,patronymic,age,borndate,dieddate,resting_place FROM author AS a
+                             LEFT JOIN author_tag AS at ON at.author = a.id WHERE at.tag = $1`,[results.rows[0].id])).rows                              
+                            
+                        tag.books = (await pool.query(
+                                `SELECT b.page_count,b.publication_date,b.title FROM book AS b 
+                                 LEFT JOIN book_tag AS bt ON bt.book = b.id WHERE bt.tag = $1`,[results.rows[0].id])).rows
+                        
+                        tag.directions = (await pool.query(
+                                `SELECT d.main_conception,d.history,d.first_date FROM direction AS d 
+                                 LEFT JOIN direct_tag AS dt ON dt.direction = d.id WHERE dt.tag = $1`,[results.rows[0].id])).rows
+
+                        res.status(201).json({tag});
 
                     }
                     else{
@@ -124,9 +127,6 @@ router.get("/",
 
 
 router.post('/',authMid,teacherMid,async (req,res)=>{
-
-    // TODO:добавить валидацию 
-    //return res.status(500).json({message:'Something went Wrong'})
 
     const{name,authorsid,booksid,directionsid,complexity} = req.body
 
@@ -154,7 +154,6 @@ router.post('/',authMid,teacherMid,async (req,res)=>{
             }
 
             return res.status(201).json({message:'Тэг добавлен '})
-        
         }
 
         currentID = currentID.rows[0].id
@@ -178,7 +177,7 @@ router.post('/',authMid,teacherMid,async (req,res)=>{
 
 })
 
-//сделать валидацию нормальную и рефакторинга завезти 
+// TODO: нормальную валидацию  и рефакторинга завезти 
 
 
 async function insertItems (currentID,value,tagName,column)  {
@@ -189,7 +188,6 @@ async function insertItems (currentID,value,tagName,column)  {
             });
         }); 
 } 
-
 
 
 module.exports = router

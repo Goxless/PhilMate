@@ -13,12 +13,7 @@ const initializePassport = require("./passportConfig");
 
 initializePassport(passport);
 
-const PORT = config.get('PORT') || 5000//default;
-
-//app.set('view engine',"ejs");
-//app.use(express.urlencoded({extended:false}));
-//app.use(flash());
-//app.use(session({ secret: 'secret', /*encryption key */ resave: false,    saveUninitialized: false}));
+const PORT = config.get('PORT') || 4000 //default;
 
 app.use(passport.initialize());
 app.use(passport.session());
@@ -32,22 +27,9 @@ app.use('/education',authMid,require('./routes/EducationRoutes'))
 
 
 
-//app.use('/user/prefs',require('./routes/UserPrefsRoutes'))
-
-
-//app.use('/tags' )
-//app.use('/prefs)
-//app.use('/')
-
-//TODO: get info request 
-
-app.get("/",authMid,(req,res)=>{
-
-    console.log("Пользователь ",req.user.userID," вошел в систему")
-
+app.get("/",(req,res)=>{
     res.status(200).send({status:"API фурычит и мурлычет нраица ",VisitDate:new Date().toISOString().slice(0, 19).replace('T', ' ')})
 
-    //res.render("../client/src/styles/index-dark.html");
 });
 
 
@@ -136,6 +118,8 @@ app.post("users/login",passport.authenticate('local',{
 }), async (req,res)=>{
     res.status(301).send({status:"deprecated"});
 })
+
+
 
 app.listen(PORT,()=>{
     console.log(`server is runninng on port ${PORT}`);
